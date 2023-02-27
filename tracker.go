@@ -10,7 +10,7 @@ import (
 type MetaTracker struct {
 	FileHash string
 	FileName string
-	Peers    map[string][]int64
+	Chunks   [][]string
 }
 
 type TrackerService struct {
@@ -40,18 +40,19 @@ type AnnounceFileResponse struct {
 }
 
 type GetPeersParams struct {
-	FileHash string
-	NickName string
+	FileHash   string
+	NickName   string
+	ChunkIndex int64
 }
 
 type GetPeersResponse struct {
-	Peers map[string][]int64
+	Peers []string
 }
 
 func (ts *TrackerService) GetPeers(params *GetPeersParams, resp *GetPeersResponse) error {
 	Log("GetPeers", params.NickName)
-	fmt.Println(ts.Trackers[params.FileHash].Peers)
-	resp.Peers = ts.Trackers[params.FileHash].Peers
+	fmt.Println(ts.Trackers[params.FileHash].Chunks[params.ChunkIndex])
+	resp.Peers = ts.Trackers[params.FileHash].Chunks[params.ChunkIndex]
 	return nil
 }
 
@@ -61,7 +62,9 @@ func (ts *TrackerService) AnnounceChunks(params *AnnounceChunksParams, resp *Ann
 	var mutex sync.Mutex
 	if ok {
 		mutex.Lock()
-		m.Peers[params.ID] = params.Chunks
+		for _, val := range params.Chunks {
+			m.Chunks[val] = append(m.Chunks[val], params.ID)
+		}
 		mutex.Unlock()
 	}
 	return nil
@@ -73,21 +76,19 @@ func (ts *TrackerService) AnnounceFile(params *AnnounceFileParams, resp *Announc
 	_, ok := ts.Trackers[params.FileHash]
 	if !ok {
 
-		metaChunks := make([]int64, params.NumOfChunks)
+		Chunks := make([][]string, params.NumOfChunks)
+
 		var wg sync.WaitGroup
 		wg.Add(int(params.NumOfChunks))
 		for i := int64(0); i < params.NumOfChunks; i++ {
 			go func(chunkIndex int64) {
 				defer wg.Done()
-				metaChunks[chunkIndex] = 1
+				Chunks[chunkIndex] = append(Chunks[chunkIndex], params.ID)
 			}(i)
 		}
 		wg.Wait()
 
-		// metaPeers = append(metaPeers, MetaPeer{ID: params.ID, Chunks: metaChunks})
-		Peers := make(map[string][]int64)
-		Peers[params.ID] = metaChunks
-		ts.Trackers[params.FileHash] = MetaTracker{FileHash: params.FileHash, FileName: params.FileName, Peers: Peers}
+		ts.Trackers[params.FileHash] = MetaTracker{FileHash: params.FileHash, FileName: params.FileName, Chunks: Chunks}
 
 		resp.Success = true
 		resp.Message = "File was open to share"

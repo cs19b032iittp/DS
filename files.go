@@ -12,6 +12,7 @@ import (
 )
 
 const chunkSize = 256
+const pieceSize = 64
 
 type Chunk struct {
 	Index      int64
@@ -34,7 +35,7 @@ type FileService struct {
 	Files map[string]Meta
 }
 
-type GetChunkParams struct {
+type GetPieceParams struct {
 	FileHash   string
 	ChunkIndex int64
 	Size       int64
@@ -42,13 +43,13 @@ type GetChunkParams struct {
 	NickName   string
 }
 
-type GetChunkResponse struct {
+type GetPieceResponse struct {
 	Data []byte
 	Size int64
 }
 
-func (fs *FileService) GetChunk(params *GetChunkParams, resp *GetChunkResponse) error {
-	Log("GetChunk", params.NickName)
+func (fs *FileService) GetPiece(params *GetPieceParams, resp *GetPieceResponse) error {
+	Log("GetPiece", params.NickName)
 	meta := fs.Files[params.FileHash]
 	inputFile, err := os.Open(meta.FilePath)
 	if err != nil {
@@ -57,6 +58,7 @@ func (fs *FileService) GetChunk(params *GetChunkParams, resp *GetChunkResponse) 
 	defer inputFile.Close()
 
 	buffer := make([]byte, params.Size)
+	fmt.Println(params)
 	_, err = inputFile.ReadAt(buffer, params.Offset)
 	if err != nil {
 		panic(err)
